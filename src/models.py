@@ -1,19 +1,132 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import backref
 
 db = SQLAlchemy()
 
+## USER ##
+##########
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), unique=False, nullable=False)
-    is_active = db.Column(db.Boolean(), unique=False, nullable=False)
+    name = db.Column(db.String(30), nullable=False)
+    username = db.Column(db.String(30), unique=True, nullable=False)
+    password = db.Column(db.String(250), nullable=False)
+    email = db.Column(db.String(50), unique=True, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    favorite = db.relationship("Favorite", backref="user")
 
     def __repr__(self):
-        return '<User %r>' % self.username
+        return '<User: %r>' % self.username
 
     def serialize(self):
         return {
             "id": self.id,
-            "email": self.email,
+            "name": self.name,
+            "username": self.username,
+            "email": self.email
             # do not serialize the password, its a security breach
         }
+
+## FAVORITE ##
+##############
+
+class Favorite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    character_id = db.Column(db.Integer, db.ForeignKey("character.id"))
+    planet_id = db.Column(db.Integer, db.ForeignKey("planet.id"))
+    character = db.relationship("Character", backref="favorite")
+    planet = db.relationship("Planet", backref="favorite")
+
+    def __repr__(self):
+        return '<Favorite: %r>' % self.user_id
+    
+    def serialize(self):
+        return{
+            "id" : self.id,
+            "user_id" : self.user_id,
+            "character_id" : self.character_id,
+            "planet_id" : self.planet_id
+        }
+
+## ITEMS ADD ##
+class Character(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    birth_year = db.Column(db.String(25), nullable=False)
+    gender = db.Column(db.String(25), nullable=False)
+    height = db.Column(db.Integer, nullable=False)
+    mass = db.Column(db.Integer, nullable=False)
+    skin_color = db.Column(db.String(25), nullable=False)
+    eye_color = db.Column(db.String(25), nullable=False)
+    hair_color = db.Column(db.String(25), nullable=False)
+
+    def serialize(self):
+        return{
+            "id" : self.id,
+            "name" : self.name,
+            "birth_year" : self.birth_year,
+            "gender" : self.gender,
+            "height" : self.height,
+            "mass" : self.mass,
+            "skin_color" : self.skin_color,
+            "eye_color" : self.eye_color,
+            "hair_color" : self.hair_color
+        }
+        
+        def _init_(self, *arg, **kwargs):
+            for(key, value) in kwargs.items():
+                if hasattr(self, key):
+                    attr_type = getattr(self._class_, key).type
+                    try:
+                        attr_type.python_type(value)
+                        setattr(self, key, value)
+                    except Exception as error:
+                        print(f"ignora todos los demas valores : {error.args}")
+
+        @classmethod
+        def create(cls, data):
+            ##creando instancia
+            instance= cls(**data)
+            if (not isinstance(instance, cls)):
+                print("blew up")
+                return None
+            db.session.add(instance)
+            try:
+                db.session.commit()
+                print(f"create:{instance.name}")
+            except Exception as error:
+                # db.session.rollback()
+                print(error.args)
+
+    def __repr__(self):
+        return '<Character: %r>' % self.name
+
+class Planet(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    diameter = db.Column(db.Integer, nullable=False)
+    gravity = db.Column(db.String(25), nullable=False)
+    terrain = db.Column(db.String(50), nullable=False)
+    climate = db.Column(db.String(50), nullable=False)
+    surface_water = db.Column(db.String(50), nullable=False)
+    population = db.Column(db.Integer, nullable=False)
+    rotation_period = db.Column(db.Integer, nullable=False)
+    orbital_period = db.Column(db.Integer, nullable=False)
+
+    def serialize(self):
+        return{
+            "id" : self.id,
+            "name" : self.name,
+            "diameter" : self.diameter,
+            "gravity" : self.gravity,
+            "terrain" : self.terrain,
+            "climate" : self.climate,
+            "surface_water" : self.surface_water,
+            "population" : self.population,
+            "rotation_period" : self.rotation_period,
+            "orbital_period" : self.orbital_period
+        }
+
+    def __repr__(self):
+        return '<Planet: %r>' % self.name
