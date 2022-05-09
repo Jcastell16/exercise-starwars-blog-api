@@ -19,7 +19,7 @@ app.url_map.strict_slashes = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["JWT_SECRET_KEY"] = os.environ.get("FLASK_APP_KEY")
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=3600)
+#app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=3600)
 MIGRATE = Migrate(app, db)
 jwt = JWTManager(app)
 db.init_app(app)
@@ -254,58 +254,66 @@ def getFavorites():
 
 @app.route('/favorite/character/<int:character_id>', methods=["POST"])
 @jwt_required()
-def favorite_character(character_id):   
+def favorite_character(character_id):
+    body = request.json
     if character_id is None:
         return jsonify({"msg": "Please provide a valid Character."}), 400
-    fav_character = Favorite.query.filter_by(character_id=character_id).first()
+    fav_character = Favorite.query.filter_by(nature_id=character_id, nature='character').first()
     if fav_character:
         return jsonify({"msg": "User already exists."}), 401
     else:
         current_user = get_jwt_identity()
-        new_favorite = Favorite()
-        new_favorite.character_id = character_id
-        new_favorite.user_id = current_user
+        new_favorite = Favorite(
+                name = body["name"],
+                nature = 'character' ,
+                nature_id = body["nature_id"],
+                user_id = current_user
+        )
         db.session.add(new_favorite)
         db.session.commit()
         return jsonify({"msg": "Favorite was successfully created."}), 200
 
 @app.route('/favorite/planet/<int:planet_id>', methods=["POST"])
 @jwt_required()
-def favorite_planet(planet_id):   
+def favorite_planet(planet_id):
+    body = request.json   
     if planet_id is None:
         return jsonify({"msg": "Please provide a valid Planet."}), 400
-    fav_planet = Favorite.query.filter_by(planet_id=planet_id).first()
+    fav_planet = Favorite.query.filter_by(nature_id=planet_id, nature='planet').first()
     if fav_planet:
         return jsonify({"msg": "User already exists."}), 401
     else:
         current_user = get_jwt_identity()
-        new_favorite = Favorite()
-        new_favorite.planet_id = planet_id
-        new_favorite.user_id = current_user
+        new_favorite = Favorite(
+                name = body["name"],
+                nature = 'planet' ,
+                nature_id = body["nature_id"],
+                user_id = current_user
+        )
         db.session.add(new_favorite)
         db.session.commit()
         return jsonify({"msg": "Favorite was successfully created."}), 200
 
-@app.route('/favorite/character/<int:character_id>', methods=["DELETE"])
+@app.route('/favorite/character/<int:nature_id>', methods=["DELETE"])
 @jwt_required()
-def favorite_character_delete(character_id):   
-    if character_id is None:
+def favorite_character_delete(nature_id):   
+    if nature_id is None:
         return jsonify({"msg": "Please provide a valid Character."}), 400
     current_user = get_jwt_identity()
-    del_character = Favorite.query.filter_by(character_id=character_id, user_id=current_user).first()
+    del_character = Favorite.query.filter_by(nature_id=nature_id, user_id=current_user, nature = 'character').first()
     if del_character is None:
         return jsonify({"msg": "The Favorite Character does not exist!."}), 401
     db.session.delete(del_character)
     db.session.commit()
     return jsonify({"msg": "Favorite was successfully delete."}), 200
 
-@app.route('/favorite/planet/<int:planet_id>', methods=["DELETE"])
+@app.route('/favorite/planet/<int:nature_id>', methods=["DELETE"])
 @jwt_required()
-def favorite_planet_delete(planet_id):   
-    if planet_id is None:
+def favorite_planet_delete(nature_id):   
+    if nature_id is None:
         return jsonify({"msg": "Please provide a valid Planet."}), 400
     current_user = get_jwt_identity()
-    del_planet = Favorite.query.filter_by(planet_id=planet_id, user_id=current_user).first()
+    del_planet = Favorite.query.filter_by(nature_id=nature_id, user_id=current_user).first()
     if del_planet is None:
         return jsonify({"msg": "The Favorite Character does not exist!."}), 401
     db.session.delete(del_planet)
@@ -315,18 +323,18 @@ def favorite_planet_delete(planet_id):
 ## MIGRATE DATABASE ##
 ######################
 
-BASE_URL = "https://www.swapi.tech/api"
+BASE_URL = "https://swapi.dev/api"
 @app.route('/population/characters', methods=['POST'])
 def population_character():
     #Solicitud de las caracteristicas
-    response = requests.get(f"{BASE_URL}/{'people'}/?page=1&limit=20")
+    response = requests.get(f"{BASE_URL}/{'people'}/")
     response = response.json()
     all_results = []
 
     for result in response['results']:
         detail = requests.get(result['url'])
         detail = detail.json()
-        all_results.append(detail['result']['properties'])
+        all_results.append(detail)
 
     instances = []
 
@@ -335,10 +343,10 @@ def population_character():
         instances.append(instance)
     return jsonify(list(map(lambda inst: inst.serialize(), instances))), 200
 
-URL_BASE = "https://www.swapi.tech/api"
+URL_BASE = "https://swapi.dev/api"
 @app.route('/population/planets', methods=['POST'])
 def handle_characters():
-    response = requests.get(f"{URL_BASE}/planets/?page=2&limit=100",)
+    response = requests.get(f"{URL_BASE}/{'planets'}/",)
     response = response.json()
     all_results = []
 

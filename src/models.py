@@ -13,7 +13,7 @@ class User(db.Model):
     password = db.Column(db.String(250), nullable=False)
     email = db.Column(db.String(50), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    favorite = db.relationship("Favorite", backref="user")
+    favorite = db.relationship("Favorite", backref="user", uselist=True)
 
     def __repr__(self):
         return '<User: %r>' % self.username
@@ -32,21 +32,26 @@ class User(db.Model):
 
 class Favorite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    character_id = db.Column(db.Integer, db.ForeignKey("character.id"))
-    planet_id = db.Column(db.Integer, db.ForeignKey("planet.id"))
-    character = db.relationship("Character", backref="favorite")
-    planet = db.relationship("Planet", backref="favorite")
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(60), nullable=False)
+    nature = db.Column(db.String(50), nullable=False)
+    nature_id = db.Column(db.Integer, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint(
+    'user_id',
+    'name',
+    name="dont_repeat_favorites"
+    ),)
 
     def __repr__(self):
-        return '<Favorite: %r>' % self.user_id
-    
+        return f"<Favorites object {self.id}>"
+
     def serialize(self):
-        return{
-            "id" : self.id,
-            "user_id" : self.user_id,
-            "character_id" : self.character_id,
-            "planet_id" : self.planet_id
+        return {
+            "user_id": self.user_id,
+            "name": self.name,
+            "nature": self.nature,
+            "nature_id": self.nature_id
         }
 
 ## ITEMS ADD ##
@@ -73,42 +78,44 @@ class Character(db.Model):
             "eye_color" : self.eye_color,
             "hair_color" : self.hair_color
         }
-        
-        def _init_(self, *arg, **kwargs):
-            for(key, value) in kwargs.items():
-                if hasattr(self, key):
-                    attr_type = getattr(self._class_, key).type
-                    try:
-                        attr_type.python_type(value)
-                        setattr(self, key, value)
-                    except Exception as error:
-                        print(f"ignora todos los demas valores : {error.args}")
-
-        @classmethod
-        def create(cls, data):
-            ##creando instancia
-            instance= cls(**data)
-            if (not isinstance(instance, cls)):
-                print("blew up")
-                return None
-            db.session.add(instance)
-            try:
-                db.session.commit()
-                print(f"create:{instance.name}")
-            except Exception as error:
-                # db.session.rollback()
-                print(error.args)
-
+    
     def __repr__(self):
         return '<Character: %r>' % self.name
+        
+    def __init__(self, *args, **kwargs):
+
+        for (key, value) in kwargs.items():
+            if hasattr(self, key):
+                attr_type = getattr(self.__class__, key).type
+
+                try:
+                    attr_type.python_type(value)
+                    setattr(self, key, value)
+                except Exception as error:
+                    print(f"ignore the other values: {error.args}")
+
+    @classmethod
+    def create(cls, data):
+        instance = cls(**data)
+        if (not isinstance(instance, cls)):
+            print("Something failed")
+            return None
+        db.session.add(instance)
+        try:
+            db.session.commit()
+            print(f"Created: {instance.name}")
+            return instance
+        except Exception as error:
+            db.session.rollback()
+            print(error.args)
+
 
 class Planet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
     diameter = db.Column(db.Integer, nullable=False)
-    gravity = db.Column(db.String(25), nullable=False)
+    gravity = db.Column(db.String(50), nullable=False)
     terrain = db.Column(db.String(50), nullable=False)
-    climate = db.Column(db.String(50), nullable=False)
     surface_water = db.Column(db.String(50), nullable=False)
     population = db.Column(db.Integer, nullable=False)
     rotation_period = db.Column(db.Integer, nullable=False)
@@ -121,7 +128,6 @@ class Planet(db.Model):
             "diameter" : self.diameter,
             "gravity" : self.gravity,
             "terrain" : self.terrain,
-            "climate" : self.climate,
             "surface_water" : self.surface_water,
             "population" : self.population,
             "rotation_period" : self.rotation_period,
@@ -130,3 +136,30 @@ class Planet(db.Model):
 
     def __repr__(self):
         return '<Planet: %r>' % self.name
+    
+    def __init__(self, *args, **kwargs):
+
+        for (key, value) in kwargs.items():
+            if hasattr(self, key):
+                attr_type = getattr(self.__class__, key).type
+
+                try:
+                    attr_type.python_type(value)
+                    setattr(self, key, value)
+                except Exception as error:
+                    print(f"ignore the other values: {error.args}")
+
+    @classmethod
+    def create(cls, data):
+        instance = cls(**data)
+        if (not isinstance(instance, cls)):
+            print("Something failed")
+            return None
+        db.session.add(instance)
+        try:
+            db.session.commit()
+            print(f"Created: {instance.name}")
+            return instance
+        except Exception as error:
+            db.session.rollback()
+            print(error.args)
